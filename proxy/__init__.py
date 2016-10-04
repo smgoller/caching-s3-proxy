@@ -37,21 +37,20 @@ class CachingS3Proxy(object):
 
     def fetch_s3_object(self, bucket, key):
         m = hashlib.md5()
-        m.update(bucket+key)
-        cache_key = m.hexdigest()
 
         conn = boto.connect_s3()
+
+        b = conn.get_bucket(bucket)
+        k = b.get_key(key)
+        if k == None:
+            return None
+        m.update(bucket+key+k.last_modified)
+        cache_key=m.hexdigest()
         if cache_key in self.cache:
             self.logger.debug('cache hit for %s' % cache_key)
             return self.cache[cache_key]
         else:
             self.logger.debug('cache miss for %s' % cache_key)
-
-        b = conn.get_bucket(bucket)
-        k = b.get_key(key)
-        if k:
-            obj = k.get_contents_as_string()
-            self.cache[cache_key] = obj
-            return obj
-        else:
-            return None
+        obj = k.get_contents_as_string()
+        self.cache[cache_key] = obj
+        return obj
